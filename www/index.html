@@ -1,0 +1,2096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ColorPop Kids - Fun Image Coloring App</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Font: Fredoka (Rounded, bubbly kid-friendly font) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* Base kid-friendly typography & touch behavior */
+    * {
+      font-family: 'Fredoka', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background: linear-gradient(160deg, #bae6fd 0%, #e0f2fe 45%, #f3e8ff 100%);
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+
+    /* Decorative floating pastel clouds */
+    @keyframes floatCloud {
+      0%, 100% { transform: translateY(0px) translateX(0px); }
+      50% { transform: translateY(-8px) translateX(10px); }
+    }
+    .cloud-float-1 { animation: floatCloud 7s ease-in-out infinite; }
+    .cloud-float-2 { animation: floatCloud 9s ease-in-out infinite reverse; }
+
+    /* Chunky 3D tactile button feel */
+    .btn-3d {
+      transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.12s ease;
+    }
+    .btn-3d:active:not(:disabled) {
+      transform: translateY(3px) scale(0.96);
+    }
+
+    /* Rainbow color wheel styling for Custom Color Picker */
+    .rainbow-wheel {
+      background: conic-gradient(
+        #ff3b30, #ff9500, #ffcc00, #34c759, #00c7be, #007aff, #af52de, #ff2d55, #ff3b30
+      );
+    }
+
+    /* Custom sleek scrollbar for palette tabs and swatches */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Pop-in animation for modals & toasts */
+    @keyframes popIn {
+      0% { opacity: 0; transform: scale(0.85) translateY(10px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .animate-pop {
+      animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    /* Active tool glow */
+    .tool-active {
+      transform: scale(1.06);
+      box-shadow: 0 0 0 3px #facc15, 0 6px 14px rgba(0, 0, 0, 0.12);
+    }
+
+    /* Canvas paper frame */
+    #coloringCanvas {
+      touch-action: none;
+      image-rendering: auto;
+      background-color: #ffffff;
+    }
+  </style>
+</head>
+<body class="h-[100dvh] w-full flex flex-col overflow-hidden relative text-slate-800">
+
+  <!-- Background decorative clouds -->
+  <div class="pointer-events-none fixed inset-0 overflow-hidden z-0 opacity-60">
+    <div class="cloud-float-1 absolute top-6 left-8 w-28 h-10 bg-white rounded-full blur-[1px] shadow-sm"></div>
+    <div class="cloud-float-2 absolute top-14 right-12 w-36 h-12 bg-white rounded-full blur-[1px] shadow-sm"></div>
+    <div class="cloud-float-1 absolute bottom-32 left-1/4 w-24 h-8 bg-white/80 rounded-full blur-[1px]"></div>
+  </div>
+
+  <!-- Confetti Canvas Overlay -->
+  <canvas id="confettiCanvas" class="pointer-events-none fixed inset-0 z-50 w-full h-full"></canvas>
+
+  <!-- ==================== TOP HEADER BAR ==================== -->
+  <header class="relative z-20 flex items-center justify-between gap-2 px-2.5 sm:px-4 py-2 bg-white/85 backdrop-blur-md border-b-2 border-sky-200 shadow-sm shrink-0">
+    <!-- Logo -->
+    <div class="flex items-center gap-2 shrink-0">
+      <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-pink-400 via-yellow-300 to-sky-400 flex items-center justify-center shadow-md border-2 border-white text-xl sm:text-2xl">
+        🎨
+      </div>
+      <div class="leading-tight">
+        <h1 class="text-base sm:text-xl font-bold tracking-wide bg-gradient-to-r from-pink-500 via-purple-500 to-sky-500 bg-clip-text text-transparent">
+          ColorPop Kids
+        </h1>
+        <p class="hidden sm:block text-[11px] font-medium text-slate-400 -mt-0.5">Tap & Color Anything!</p>
+      </div>
+    </div>
+
+    <!-- Primary Top Actions -->
+    <div class="flex items-center gap-1.5 sm:gap-2">
+      <!-- Upload Photo / Gallery -->
+      <input type="file" id="galleryInput" accept="image/*" class="hidden" />
+      <button id="btnGallery" title="Pick an image from your gallery"
+        class="btn-3d flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-gradient-to-b from-amber-300 to-orange-400 text-amber-950 font-bold text-xs sm:text-sm border-b-4 border-orange-600 shadow-sm hover:brightness-105 cursor-pointer">
+        <span class="text-base sm:text-lg leading-none">📷</span>
+        <span>Gallery</span>
+      </button>
+
+      <!-- Templates Button -->
+      <button id="btnTemplates" title="Choose a fun coloring page"
+        class="btn-3d flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-gradient-to-b from-violet-400 to-purple-500 text-white font-bold text-xs sm:text-sm border-b-4 border-purple-700 shadow-sm hover:brightness-105 cursor-pointer">
+        <span class="text-base sm:text-lg leading-none">🖼️</span>
+        <span class="hidden xs:inline sm:inline">Pages</span>
+      </button>
+
+      <!-- Sound Toggle -->
+      <button id="btnMute" title="Toggle Sound Effects"
+        class="btn-3d w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-sky-100 hover:bg-sky-200 text-sky-700 border-b-4 border-sky-300 flex items-center justify-center text-base sm:text-lg cursor-pointer">
+        🔊
+      </button>
+
+      <!-- Save Artwork -->
+      <button id="btnSave" title="Save your colorful picture!"
+        class="btn-3d flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-gradient-to-b from-emerald-400 to-green-500 text-white font-bold text-xs sm:text-sm border-b-4 border-green-700 shadow-sm hover:brightness-105 cursor-pointer">
+        <span class="text-base sm:text-lg leading-none">💾</span>
+        <span class="hidden sm:inline">Save</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN WORKSPACE ==================== -->
+  <main class="relative z-10 flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
+
+    <!-- LEFT (Desktop) / TOP (Mobile) TOOLS TOOLBAR -->
+    <aside class="shrink-0 bg-white/80 backdrop-blur-md border-b-2 md:border-b-0 md:border-r-2 border-sky-200 px-2 py-1.5 md:py-3 md:w-[92px] flex md:flex-col items-center justify-between md:justify-start gap-1.5 sm:gap-2 overflow-x-auto md:overflow-y-auto no-scrollbar z-20">
+      <!-- Primary Drawing Tools -->
+      <div class="flex md:flex-col items-center gap-1.5 sm:gap-2 shrink-0">
+        <button data-tool="bucket" class="tool-btn btn-3d tool-active flex flex-col items-center justify-center w-12 h-11 md:w-16 md:h-14 rounded-2xl bg-gradient-to-b from-pink-400 to-rose-500 text-white border-b-4 border-rose-700 cursor-pointer" title="Paint Bucket (Tap to Fill)">
+          <span class="text-lg md:text-xl leading-none">🪣</span>
+          <span class="text-[10px] font-bold mt-0.5 leading-none">Fill</span>
+        </button>
+
+        <button data-tool="brush" class="tool-btn btn-3d flex flex-col items-center justify-center w-12 h-11 md:w-16 md:h-14 rounded-2xl bg-gradient-to-b from-sky-400 to-blue-500 text-white border-b-4 border-blue-700 cursor-pointer" title="Magic Brush (Freehand Draw)">
+          <span class="text-lg md:text-xl leading-none">🖌️</span>
+          <span class="text-[10px] font-bold mt-0.5 leading-none">Brush</span>
+        </button>
+
+        <button data-tool="eraser" class="tool-btn btn-3d flex flex-col items-center justify-center w-12 h-11 md:w-16 md:h-14 rounded-2xl bg-gradient-to-b from-fuchsia-400 to-purple-500 text-white border-b-4 border-purple-700 cursor-pointer" title="Magic Eraser (Keeps Outlines!)">
+          <span class="text-lg md:text-xl leading-none">🧽</span>
+          <span class="text-[10px] font-bold mt-0.5 leading-none">Eraser</span>
+        </button>
+
+        <button data-tool="pan" class="tool-btn btn-3d flex flex-col items-center justify-center w-12 h-11 md:w-16 md:h-14 rounded-2xl bg-gradient-to-b from-teal-400 to-emerald-500 text-white border-b-4 border-emerald-700 cursor-pointer" title="Move / Pan Image when Zoomed">
+          <span class="text-lg md:text-xl leading-none">✋</span>
+          <span class="text-[10px] font-bold mt-0.5 leading-none">Move</span>
+        </button>
+      </div>
+
+      <!-- Divider -->
+      <div class="w-0.5 h-8 md:w-12 md:h-0.5 bg-sky-200 rounded-full shrink-0"></div>
+
+      <!-- History & Reset -->
+      <div class="flex md:flex-col items-center gap-1.5 sm:gap-2 shrink-0">
+        <div class="flex md:flex-row gap-1.5">
+          <button id="btnUndo" disabled title="Undo"
+            class="btn-3d w-10 h-10 md:w-8 md:h-9 rounded-xl bg-amber-100 hover:bg-amber-200 disabled:opacity-40 text-amber-900 border-b-4 border-amber-300 flex items-center justify-center text-base font-bold cursor-pointer">
+            ↩️
+          </button>
+          <button id="btnRedo" disabled title="Redo"
+            class="btn-3d w-10 h-10 md:w-8 md:h-9 rounded-xl bg-amber-100 hover:bg-amber-200 disabled:opacity-40 text-amber-900 border-b-4 border-amber-300 flex items-center justify-center text-base font-bold cursor-pointer">
+            ↪️
+          </button>
+        </div>
+
+        <button id="btnSettings" title="Brush Size & Fill Tolerance"
+          class="btn-3d flex flex-col items-center justify-center w-12 h-11 md:w-16 md:h-12 rounded-2xl bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border-b-4 border-indigo-300 cursor-pointer">
+          <span class="text-base md:text-lg leading-none">⚙️</span>
+          <span class="text-[10px] font-bold mt-0.5 leading-none">Adjust</span>
+        </button>
+
+        <button id="btnReset" title="Clear Colors & Start Over"
+          class="btn-3d flex flex-col items-center justify-center w-12 h-11 md:w-16 md:h-12 rounded-2xl bg-rose-100 hover:bg-rose-200 text-rose-700 border-b-4 border-rose-300 cursor-pointer">
+          <span class="text-base md:text-lg leading-none">🔄</span>
+          <span class="text-[10px] font-bold mt-0.5 leading-none">Reset</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- CENTRAL CANVAS STAGE (100% Full Image Visibility Guaranteed) -->
+    <section id="canvasStage" class="flex-1 min-h-0 relative flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+      <!-- Transformable Viewport Container -->
+      <div id="canvasViewport" class="relative flex items-center justify-center will-change-transform" style="transform: translate(0px, 0px) scale(1);">
+        <div class="relative rounded-2xl p-1.5 sm:p-2 bg-white shadow-[0_12px_35px_rgba(30,64,175,0.16)] border-4 border-white ring-2 ring-sky-200/80">
+          <canvas id="coloringCanvas" class="block rounded-xl cursor-crosshair"></canvas>
+        </div>
+      </div>
+
+      <!-- Quick Settings Popover (Tolerance & Brush Size) -->
+      <div id="settingsPopover" class="hidden absolute top-3 left-3 z-30 w-64 bg-white/95 backdrop-blur-md rounded-3xl p-4 shadow-xl border-4 border-sky-200 animate-pop">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold text-slate-700 text-sm flex items-center gap-1.5">⚙️ Tool Settings</h3>
+          <button id="closeSettings" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-xs flex items-center justify-center cursor-pointer">✕</button>
+        </div>
+
+        <!-- Fill Tolerance Slider -->
+        <div class="mb-4">
+          <div class="flex justify-between text-xs font-bold text-slate-600 mb-1">
+            <span>🪣 Fill Smoothness</span>
+            <span id="toleranceValue" class="px-2 py-0.5 rounded-full bg-pink-100 text-pink-600">45</span>
+          </div>
+          <input id="toleranceSlider" type="range" min="5" max="100" value="45"
+            class="w-full accent-pink-500 h-2.5 bg-pink-100 rounded-lg cursor-pointer" />
+          <p class="text-[10px] text-slate-400 mt-1">Higher fills blurry gallery lines cleanly!</p>
+        </div>
+
+        <!-- Brush / Eraser Size Slider -->
+        <div>
+          <div class="flex justify-between text-xs font-bold text-slate-600 mb-1">
+            <span>🖌️ Brush / Eraser Size</span>
+            <span id="brushSizeValue" class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-600">18px</span>
+          </div>
+          <input id="brushSizeSlider" type="range" min="4" max="60" value="18"
+            class="w-full accent-sky-500 h-2.5 bg-sky-100 rounded-lg cursor-pointer" />
+          <div class="mt-2 flex items-center justify-center h-10 bg-slate-50 rounded-xl border border-slate-100">
+            <div id="brushPreviewDot" class="rounded-full shadow-sm border border-white transition-all" style="width: 18px; height: 18px; background-color: #ef4444;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Floating Zoom & Fit Controls (Bottom Right of Stage) -->
+      <div class="absolute bottom-2.5 right-2.5 z-20 flex items-center gap-1 bg-white/90 backdrop-blur-md p-1.5 rounded-2xl shadow-lg border-2 border-sky-200">
+        <button id="btnZoomOut" title="Zoom Out"
+          class="btn-3d w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-lg flex items-center justify-center border-b-2 border-sky-300 cursor-pointer">
+          −
+        </button>
+        <button id="btnZoomFit" title="Fit Full Image (100%)"
+          class="btn-3d px-2.5 h-8 sm:h-9 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs flex items-center gap-1 border-b-2 border-amber-300 cursor-pointer">
+          <span>🔍</span>
+          <span id="zoomPercent">100%</span>
+        </button>
+        <button id="btnZoomIn" title="Zoom In"
+          class="btn-3d w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-lg flex items-center justify-center border-b-2 border-sky-300 cursor-pointer">
+          +
+        </button>
+      </div>
+
+      <!-- Toast Feedback Banner -->
+      <div id="toastBanner" class="hidden absolute top-3 right-3 z-30 px-4 py-2 rounded-2xl bg-slate-800/90 text-white font-bold text-xs sm:text-sm shadow-lg animate-pop">
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== BOTTOM COLOR DOCK ==================== -->
+  <footer class="relative z-20 shrink-0 bg-white/95 backdrop-blur-md border-t-4 border-sky-200 shadow-[0_-6px_20px_rgba(0,0,0,0.06)] px-2 sm:px-4 pt-2 pb-2.5">
+    <!-- Row 1: Scrollable Palette Category Pills -->
+    <div id="paletteTabs" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2">
+      <!-- Populated dynamically by JS -->
+    </div>
+
+    <!-- Row 2: Custom Color Picker + Active Palette Swatches + My Colors -->
+    <div class="flex items-center gap-2 sm:gap-3">
+      <!-- Current Active Color + Custom Rainbow Wheel Picker -->
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0 pr-2 border-r-2 border-slate-100">
+        <!-- Active Color Preview Bubble -->
+        <div id="activeColorBadge" title="Current Selected Color"
+          class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl border-4 border-white shadow-md ring-2 ring-slate-200 shrink-0 transition-transform"
+          style="background-color: #ef4444;">
+        </div>
+
+        <!-- Custom Color Picker Wheel -->
+        <label for="customColorInput" title="Pick ANY Custom Color!"
+          class="btn-3d relative w-10 h-10 sm:w-11 sm:h-11 rounded-full rainbow-wheel p-0.5 shadow-md border-2 border-white ring-2 ring-pink-300 flex items-center justify-center cursor-pointer shrink-0 hover:scale-105">
+          <span class="w-5 h-5 rounded-full bg-white/95 text-slate-700 font-extrabold text-sm flex items-center justify-center shadow-sm leading-none">+</span>
+          <input type="color" id="customColorInput" value="#ff4081" class="sr-only" />
+        </label>
+      </div>
+
+      <!-- Swatches Container (Scrollable on small screens) -->
+      <div class="flex-1 min-w-0 flex flex-col gap-1.5">
+        <!-- Active Palette Swatches -->
+        <div id="swatchContainer" class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1 px-0.5">
+          <!-- Populated dynamically by JS -->
+        </div>
+
+        <!-- My Custom Colors Row (appears neatly when user picks custom colors) -->
+        <div id="myColorsRow" class="hidden items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <span class="text-[10px] font-bold text-purple-500 bg-purple-50 px-2 py-0.5 rounded-full shrink-0 border border-purple-200">✨ My Colors</span>
+          <div id="myColorsSwatches" class="flex items-center gap-1.5"></div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==================== TEMPLATES MODAL ==================== -->
+  <div id="templatesModal" class="hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
+    <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[88dvh] flex flex-col overflow-hidden border-4 border-sky-300 shadow-2xl animate-pop">
+      <div class="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-sky-100 via-purple-100 to-pink-100 border-b-2 border-sky-200">
+        <h2 class="text-lg sm:text-xl font-bold text-purple-800 flex items-center gap-2">
+          🖼️ Choose a Coloring Page!
+        </h2>
+        <button id="closeTemplates" class="btn-3d w-9 h-9 rounded-2xl bg-white text-slate-600 font-bold border-b-4 border-slate-200 flex items-center justify-center cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <div id="templatesGrid" class="p-4 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+        <!-- 6 Procedural Templates injected here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== RESET CONFIRMATION MODAL ==================== -->
+  <div id="resetModal" class="hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-5 text-center border-4 border-rose-300 shadow-2xl animate-pop">
+      <div class="text-5xl mb-2">🧽</div>
+      <h2 class="text-xl font-bold text-slate-800 mb-1">Start Fresh?</h2>
+      <p class="text-sm text-slate-500 mb-5">This will clear all your colors on this picture so you can color it again!</p>
+      <div class="flex items-center justify-center gap-3">
+        <button id="cancelReset" class="btn-3d flex-1 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border-b-4 border-slate-300 cursor-pointer">
+          Keep Coloring
+        </button>
+        <button id="confirmReset" class="btn-3d flex-1 py-2.5 rounded-2xl bg-gradient-to-b from-rose-400 to-red-500 text-white font-bold border-b-4 border-red-700 cursor-pointer">
+          Yes, Reset!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== APPLICATION SCRIPT ==================== -->
+  <script>
+    (() => {
+      'use strict';
+
+      // =========================================================================
+      // 1. RICH COLOR PALETTES (10 Distinct Kid-Friendly Palettes x 12 Colors)
+      // =========================================================================
+      const PALETTES = [
+        {
+          id: 'rainbow', name: 'Rainbow', icon: '🌈',
+          colors: ['#FF2D55', '#FF3B30', '#FF6B00', '#FFCC00', '#A3E635', '#22C55E', '#06B6D4', '#3B82F6', '#6366F1', '#A855F7', '#EC4899', '#FFFFFF']
+        },
+        {
+          id: 'pastel', name: 'Pastel', icon: '🍬',
+          colors: ['#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E2C2FF', '#FFC8DD', '#CDB4DB', '#BDE0FE', '#A2D2FF', '#FDE2E4', '#FFF1E6']
+        },
+        {
+          id: 'neon', name: 'Neon', icon: '⚡',
+          colors: ['#FF007F', '#FF003C', '#FF5F1F', '#FFF01F', '#39FF14', '#00FF9F', '#00F5FF', '#0080FF', '#7B2CBF', '#BC13FE', '#FF10F0', '#CCFF00']
+        },
+        {
+          id: 'sunset', name: 'Sunset', icon: '🌅',
+          colors: ['#FFD166', '#FFB703', '#FB8500', '#F77F00', '#F94144', '#E63946', '#D62828', '#B5179E', '#7209B7', '#560BAD', '#3A0CA3', '#240046']
+        },
+        {
+          id: 'ocean', name: 'Ocean', icon: '🌊',
+          colors: ['#E0FBFC', '#CAF0F8', '#90E0EF', '#48CAE4', '#00B4D8', '#0096C7', '#0077B6', '#023E8A', '#03045E', '#2EC4B6', '#06D6A0', '#80FFDB']
+        },
+        {
+          id: 'nature', name: 'Nature', icon: '🌿',
+          colors: ['#D9ED92', '#B5E48C', '#76C893', '#52B69A', '#34A0A4', '#168AAD', '#2D6A4F', '#1B4332', '#DDB892', '#B08968', '#7F5539', '#582F0E']
+        },
+        {
+          id: 'skin', name: 'Skin & Hair', icon: '🧸',
+          colors: ['#FFF0E5', '#FFE0BD', '#FCD5B5', '#F1C27D', '#E0AC69', '#C68642', '#8D5524', '#5C3A21', '#3B2314', '#1C1C1C', '#D4A373', '#9A5B32']
+        },
+        {
+          id: 'metallic', name: 'Metallic', icon: '✨',
+          colors: ['#FFF8DC', '#FFD700', '#DAA520', '#B8860B', '#E5E4E2', '#C0C0C0', '#9EA3B0', '#708090', '#CD7F32', '#B87333', '#E6BE8A', '#D8B2D1']
+        },
+        {
+          id: 'retro', name: 'Retro', icon: '🕹️',
+          colors: ['#E76F51', '#F4A261', '#E9C46A', '#2A9D8F', '#264653', '#E63946', '#F1FAEE', '#A8DADC', '#457B9D', '#1D3557', '#D90429', '#FFBE0B']
+        },
+        {
+          id: 'mono', name: 'Mono', icon: '🖤',
+          colors: ['#FFFFFF', '#F1F5F9', '#E2E8F0', '#CBD5E1', '#94A3B8', '#64748B', '#475569', '#334155', '#1E293B', '#0F172A', '#18181B', '#000000']
+        }
+      ];
+
+      // =========================================================================
+      // 2. APPLICATION STATE & DOM REFERENCES
+      // =========================================================================
+      const state = {
+        activePaletteId: 'rainbow',
+        currentColor: '#FF2D55',
+        customColors: [],
+        tool: 'bucket', // 'bucket' | 'brush' | 'eraser' | 'pan'
+        tolerance: 45,
+        brushSize: 18,
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+        isMuted: false,
+        history: [],
+        historyIndex: -1,
+        maxHistory: 20,
+        isDrawing: false,
+        isPanning: false,
+        lastX: 0,
+        lastY: 0,
+        panStartX: 0,
+        panStartY: 0,
+        originPanX: 0,
+        originPanY: 0
+      };
+
+      // DOM Elements
+      const canvas = document.getElementById('coloringCanvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const originalCanvas = document.createElement('canvas'); // Stores clean uncolored image for Reset & Magic Eraser
+      const originalCtx = originalCanvas.getContext('2d', { willReadFrequently: true });
+      let eraserPattern = null;
+
+      const canvasStage = document.getElementById('canvasStage');
+      const canvasViewport = document.getElementById('canvasViewport');
+      const paletteTabsEl = document.getElementById('paletteTabs');
+      const swatchContainerEl = document.getElementById('swatchContainer');
+      const activeColorBadge = document.getElementById('activeColorBadge');
+      const customColorInput = document.getElementById('customColorInput');
+      const myColorsRow = document.getElementById('myColorsRow');
+      const myColorsSwatches = document.getElementById('myColorsSwatches');
+
+      const galleryInput = document.getElementById('galleryInput');
+      const btnGallery = document.getElementById('btnGallery');
+      const btnTemplates = document.getElementById('btnTemplates');
+      const btnMute = document.getElementById('btnMute');
+      const btnSave = document.getElementById('btnSave');
+      const btnUndo = document.getElementById('btnUndo');
+      const btnRedo = document.getElementById('btnRedo');
+      const btnReset = document.getElementById('btnReset');
+      const btnSettings = document.getElementById('btnSettings');
+      const settingsPopover = document.getElementById('settingsPopover');
+      const closeSettings = document.getElementById('closeSettings');
+      const toleranceSlider = document.getElementById('toleranceSlider');
+      const toleranceValue = document.getElementById('toleranceValue');
+      const brushSizeSlider = document.getElementById('brushSizeSlider');
+      const brushSizeValue = document.getElementById('brushSizeValue');
+      const brushPreviewDot = document.getElementById('brushPreviewDot');
+
+      const btnZoomIn = document.getElementById('btnZoomIn');
+      const btnZoomOut = document.getElementById('btnZoomOut');
+      const btnZoomFit = document.getElementById('btnZoomFit');
+      const zoomPercentEl = document.getElementById('zoomPercent');
+
+      const templatesModal = document.getElementById('templatesModal');
+      const templatesGrid = document.getElementById('templatesGrid');
+      const closeTemplates = document.getElementById('closeTemplates');
+      const resetModal = document.getElementById('resetModal');
+      const cancelReset = document.getElementById('cancelReset');
+      const confirmReset = document.getElementById('confirmReset');
+      const toastBanner = document.getElementById('toastBanner');
+      const confettiCanvas = document.getElementById('confettiCanvas');
+
+      // =========================================================================
+      // 3. CHEERFUL WEB AUDIO API SOUND EFFECTS (Zero External Audio URLs)
+      // =========================================================================
+      let audioCtx = null;
+      function getAudioContext() {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) audioCtx = new AudioContextClass();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+        return audioCtx;
+      }
+
+      const SoundFX = {
+        pop() {
+          if (state.isMuted) return;
+          try {
+            const ac = getAudioContext();
+            if (!ac) return;
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            osc.type = 'sine';
+            const now = ac.currentTime;
+            osc.frequency.setValueAtTime(320, now);
+            osc.frequency.exponentialRampToValueAtTime(620, now + 0.09);
+            gain.gain.setValueAtTime(0.16, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+            osc.connect(gain);
+            gain.connect(ac.destination);
+            osc.start(now);
+            osc.stop(now + 0.12);
+          } catch (e) {}
+        },
+        click() {
+          if (state.isMuted) return;
+          try {
+            const ac = getAudioContext();
+            if (!ac) return;
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            osc.type = 'triangle';
+            const now = ac.currentTime;
+            osc.frequency.setValueAtTime(680, now);
+            osc.frequency.exponentialRampToValueAtTime(480, now + 0.045);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            osc.connect(gain);
+            gain.connect(ac.destination);
+            osc.start(now);
+            osc.stop(now + 0.055);
+          } catch (e) {}
+        },
+        undo() {
+          if (state.isMuted) return;
+          try {
+            const ac = getAudioContext();
+            if (!ac) return;
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            osc.type = 'sine';
+            const now = ac.currentTime;
+            osc.frequency.setValueAtTime(460, now);
+            osc.frequency.exponentialRampToValueAtTime(260, now + 0.09);
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            osc.connect(gain);
+            gain.connect(ac.destination);
+            osc.start(now);
+            osc.stop(now + 0.11);
+          } catch (e) {}
+        },
+        celebrate() {
+          if (state.isMuted) return;
+          try {
+            const ac = getAudioContext();
+            if (!ac) return;
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5 E5 G5 C6
+            notes.forEach((freq, idx) => {
+              const osc = ac.createOscillator();
+              const gain = ac.createGain();
+              osc.type = 'triangle';
+              const start = ac.currentTime + idx * 0.09;
+              osc.frequency.setValueAtTime(freq, start);
+              gain.gain.setValueAtTime(0.14, start);
+              gain.gain.exponentialRampToValueAtTime(0.001, start + 0.35);
+              osc.connect(gain);
+              gain.connect(ac.destination);
+              osc.start(start);
+              osc.stop(start + 0.36);
+            });
+          } catch (e) {}
+        }
+      };
+
+      // =========================================================================
+      // 4. TOAST HELPER & CONFETTI CELEBRATION
+      // =========================================================================
+      let toastTimer = null;
+      function showToast(msg) {
+        toastBanner.textContent = msg;
+        toastBanner.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          toastBanner.classList.add('hidden');
+        }, 2300);
+      }
+
+      function launchConfetti() {
+        const cCtx = confettiCanvas.getContext('2d');
+        confettiCanvas.width = window.innerWidth;
+        confettiCanvas.height = window.innerHeight;
+        const colors = ['#FF2D55', '#FFCC00', '#34C759', '#00C7BE', '#3B82F6', '#A855F7', '#FF9500'];
+        const particles = [];
+        for (let i = 0; i < 95; i++) {
+          particles.push({
+            x: confettiCanvas.width * (0.2 + Math.random() * 0.6),
+            y: confettiCanvas.height * 0.4,
+            vx: (Math.random() - 0.5) * 14,
+            vy: -Math.random() * 14 - 4,
+            size: Math.random() * 9 + 5,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            rot: Math.random() * Math.PI * 2,
+            vRot: (Math.random() - 0.5) * 0.25,
+            life: 1
+          });
+        }
+        function frame() {
+          cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+          let alive = false;
+          for (const p of particles) {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.38; // gravity
+            p.rot += p.vRot;
+            p.life -= 0.012;
+            if (p.life > 0 && p.y < confettiCanvas.height + 20) {
+              alive = true;
+              cCtx.save();
+              cCtx.globalAlpha = Math.max(0, p.life);
+              cCtx.translate(p.x, p.y);
+              cCtx.rotate(p.rot);
+              cCtx.fillStyle = p.color;
+              cCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.65);
+              cCtx.restore();
+            }
+          }
+          if (alive) {
+            requestAnimationFrame(frame);
+          } else {
+            cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+          }
+        }
+        requestAnimationFrame(frame);
+      }
+
+      // =========================================================================
+      // 5. FULL IMAGE VISIBILITY & RESPONSIVE CANVAS FITTING (ZERO CROPPING!)
+      // =========================================================================
+      function fitCanvasToStage() {
+        if (!canvas.width || !canvas.height) return;
+        const stageRect = canvasStage.getBoundingClientRect();
+        // Leave comfortable breathing room for the white frame border & padding
+        const padX = window.innerWidth < 640 ? 28 : 48;
+        const padY = window.innerWidth < 640 ? 28 : 48;
+        const maxW = Math.max(120, stageRect.width - padX);
+        const maxH = Math.max(120, stageRect.height - padY);
+
+        const imgAspect = canvas.width / canvas.height;
+        const stageAspect = maxW / maxH;
+
+        let displayW, displayH;
+        if (imgAspect > stageAspect) {
+          displayW = maxW;
+          displayH = maxW / imgAspect;
+        } else {
+          displayH = maxH;
+          displayW = maxH * imgAspect;
+        }
+
+        canvas.style.width = `${Math.floor(displayW)}px`;
+        canvas.style.height = `${Math.floor(displayH)}px`;
+      }
+
+      function applyViewportTransform() {
+        canvasViewport.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+        zoomPercentEl.textContent = `${Math.round(state.zoom * 100)}%`;
+      }
+
+      function resetZoomAndPan() {
+        state.zoom = 1;
+        state.panX = 0;
+        state.panY = 0;
+        applyViewportTransform();
+      }
+
+      // Observe stage resizes (orientation change, window resize, keyboard open)
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => fitCanvasToStage());
+        ro.observe(canvasStage);
+      }
+      window.addEventListener('resize', fitCanvasToStage);
+
+      // =========================================================================
+      // 6. UNDO / REDO HISTORY MANAGEMENT (20-step ImageData Snapshots)
+      // =========================================================================
+      function saveHistorySnapshot() {
+        // Discard any redo states ahead of current index
+        if (state.historyIndex < state.history.length - 1) {
+          state.history = state.history.slice(0, state.historyIndex + 1);
+        }
+        const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        state.history.push(snapshot);
+        if (state.history.length > state.maxHistory) {
+          state.history.shift();
+        } else {
+          state.historyIndex++;
+        }
+        updateHistoryButtons();
+      }
+
+      function initCanvasWithSource(sourceWidth, sourceHeight, drawFn) {
+        // Intelligently scale resolution up to max 1200px while preserving exact aspect ratio
+        const MAX_DIM = 1200;
+        let targetW = sourceWidth;
+        let targetH = sourceHeight;
+        if (targetW > MAX_DIM || targetH > MAX_DIM) {
+          const ratio = Math.min(MAX_DIM / targetW, MAX_DIM / targetH);
+          targetW = Math.round(targetW * ratio);
+          targetH = Math.round(targetH * ratio);
+        }
+
+        canvas.width = targetW;
+        canvas.height = targetH;
+        originalCanvas.width = targetW;
+        originalCanvas.height = targetH;
+
+        // Fill pure white background first (ensures transparent PNGs are cleanly fillable)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, targetW, targetH);
+
+        // Draw the image or procedural template
+        drawFn(ctx, targetW, targetH);
+
+        // Save clean original copy for Reset & Magic Eraser
+        originalCtx.clearRect(0, 0, targetW, targetH);
+        originalCtx.drawImage(canvas, 0, 0);
+        eraserPattern = ctx.createPattern(originalCanvas, 'no-repeat');
+
+        // Reset history & viewport fit
+        state.history = [];
+        state.historyIndex = -1;
+        saveHistorySnapshot();
+        resetZoomAndPan();
+        fitCanvasToStage();
+      }
+
+      function updateHistoryButtons() {
+        btnUndo.disabled = state.historyIndex <= 0;
+        btnRedo.disabled = state.historyIndex >= state.history.length - 1;
+      }
+
+      function performUndo() {
+        if (state.historyIndex > 0) {
+          state.historyIndex--;
+          ctx.putImageData(state.history[state.historyIndex], 0, 0);
+          updateHistoryButtons();
+          SoundFX.undo();
+        }
+      }
+
+      function performRedo() {
+        if (state.historyIndex < state.history.length - 1) {
+          state.historyIndex++;
+          ctx.putImageData(state.history[state.historyIndex], 0, 0);
+          updateHistoryButtons();
+          SoundFX.click();
+        }
+      }
+
+      // =========================================================================
+      // 7. FAST NON-RECURSIVE SCANLINE FLOOD FILL ALGORITHM
+      // =========================================================================
+      function hexToRgba(hex) {
+        const clean = hex.replace('#', '');
+        const r = parseInt(clean.substring(0, 2), 16);
+        const g = parseInt(clean.substring(2, 4), 16);
+        const b = parseInt(clean.substring(4, 6), 16);
+        return [r, g, b, 255];
+      }
+
+      function floodFill(startX, startY, fillHex) {
+        const w = canvas.width;
+        const h = canvas.height;
+        if (startX < 0 || startX >= w || startY < 0 || startY >= h) return false;
+
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const data = imgData.data;
+        const [fillR, fillG, fillB, fillA] = hexToRgba(fillHex);
+
+        const startIdx = (startY * w + startX) * 4;
+        const startR = data[startIdx];
+        const startG = data[startIdx + 1];
+        const startB = data[startIdx + 2];
+        const startA = data[startIdx + 3];
+
+        // If tapping an area that is already virtually the exact same color, skip
+        if (
+          Math.abs(startR - fillR) <= 2 &&
+          Math.abs(startG - fillG) <= 2 &&
+          Math.abs(startB - fillB) <= 2 &&
+          Math.abs(startA - fillA) <= 2
+        ) {
+          return false;
+        }
+
+        // Convert tolerance (5-100) into per-channel RGB threshold
+        const tol = Math.round(state.tolerance * 2.55);
+
+        // Visited bitmap guarantees 100% termination with zero infinite loops
+        const visited = new Uint8Array(w * h);
+
+        function matchesStart(pixelPos) {
+          if (visited[pixelPos]) return false;
+          const i = pixelPos * 4;
+          return (
+            Math.abs(data[i] - startR) <= tol &&
+            Math.abs(data[i + 1] - startG) <= tol &&
+            Math.abs(data[i + 2] - startB) <= tol &&
+            Math.abs(data[i + 3] - startA) <= tol
+          );
+        }
+
+        // Non-recursive scanline stack using plain JS arrays (very fast & safe)
+        const stackX = [startX];
+        const stackY = [startY];
+
+        while (stackX.length > 0) {
+          const x = stackX.pop();
+          const y = stackY.pop();
+          const rowOffset = y * w;
+
+          if (!matchesStart(rowOffset + x)) continue;
+
+          // Scan left
+          let leftX = x;
+          while (leftX > 0 && matchesStart(rowOffset + leftX - 1)) {
+            leftX--;
+          }
+          // Scan right
+          let rightX = x;
+          while (rightX < w - 1 && matchesStart(rowOffset + rightX + 1)) {
+            rightX++;
+          }
+
+          // Fill horizontal span and inspect rows directly above & below
+          let spanAbove = false;
+          let spanBelow = false;
+
+          for (let px = leftX; px <= rightX; px++) {
+            const pPos = rowOffset + px;
+            visited[pPos] = 1;
+            const i = pPos * 4;
+            data[i] = fillR;
+            data[i + 1] = fillG;
+            data[i + 2] = fillB;
+            data[i + 3] = fillA;
+
+            if (y > 0) {
+              const aboveMatch = matchesStart(pPos - w);
+              if (!spanAbove && aboveMatch) {
+                stackX.push(px);
+                stackY.push(y - 1);
+                spanAbove = true;
+              } else if (spanAbove && !aboveMatch) {
+                spanAbove = false;
+              }
+            }
+
+            if (y < h - 1) {
+              const belowMatch = matchesStart(pPos + w);
+              if (!spanBelow && belowMatch) {
+                stackX.push(px);
+                stackY.push(y + 1);
+                spanBelow = true;
+              } else if (spanBelow && !belowMatch) {
+                spanBelow = false;
+              }
+            }
+          }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        return true;
+      }
+
+      // =========================================================================
+      // 8. ACCURATE POINTER & TOUCH COORDINATE MAPPING (Mouse + Mobile Touch)
+      // =========================================================================
+      function getCanvasPoint(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return {
+          x: Math.floor((clientX - rect.left) * scaleX),
+          y: Math.floor((clientY - rect.top) * scaleY)
+        };
+      }
+
+      function drawBrushSegment(x1, y1, x2, y2) {
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        // Scale brush width proportionally to canvas resolution so it feels consistent
+        const scaleFactor = Math.max(canvas.width, canvas.height) / 800;
+        ctx.lineWidth = Math.max(2, state.brushSize * scaleFactor);
+
+        if (state.tool === 'eraser') {
+          ctx.strokeStyle = eraserPattern || '#FFFFFF';
+        } else {
+          ctx.strokeStyle = state.currentColor;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Pointer Events on Canvas
+      canvas.addEventListener('pointerdown', (e) => {
+        // Close settings popover if open
+        settingsPopover.classList.add('hidden');
+
+        if (state.tool === 'pan') {
+          state.isPanning = true;
+          state.panStartX = e.clientX;
+          state.panStartY = e.clientY;
+          state.originPanX = state.panX;
+          state.originPanY = state.panY;
+          canvas.setPointerCapture(e.pointerId);
+          return;
+        }
+
+        const pt = getCanvasPoint(e.clientX, e.clientY);
+
+        if (state.tool === 'bucket') {
+          const changed = floodFill(pt.x, pt.y, state.currentColor);
+          if (changed) {
+            saveHistorySnapshot();
+            SoundFX.pop();
+          }
+        } else if (state.tool === 'brush' || state.tool === 'eraser') {
+          state.isDrawing = true;
+          state.lastX = pt.x;
+          state.lastY = pt.y;
+          canvas.setPointerCapture(e.pointerId);
+          // Draw a dot immediately on tap
+          drawBrushSegment(pt.x, pt.y, pt.x + 0.1, pt.y + 0.1);
+        }
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        if (state.isPanning) {
+          state.panX = state.originPanX + (e.clientX - state.panStartX);
+          state.panY = state.originPanY + (e.clientY - state.panStartY);
+          applyViewportTransform();
+          return;
+        }
+        if (state.isDrawing) {
+          const pt = getCanvasPoint(e.clientX, e.clientY);
+          drawBrushSegment(state.lastX, state.lastY, pt.x, pt.y);
+          state.lastX = pt.x;
+          state.lastY = pt.y;
+        }
+      });
+
+      function endPointerAction() {
+        if (state.isDrawing) {
+          state.isDrawing = false;
+          saveHistorySnapshot();
+        }
+        if (state.isPanning) {
+          state.isPanning = false;
+        }
+      }
+
+      canvas.addEventListener('pointerup', endPointerAction);
+      canvas.addEventListener('pointercancel', endPointerAction);
+
+      // Also allow dragging anywhere on the stage when in Pan mode
+      canvasStage.addEventListener('pointerdown', (e) => {
+        if (e.target === canvasStage && state.tool === 'pan') {
+          state.isPanning = true;
+          state.panStartX = e.clientX;
+          state.panStartY = e.clientY;
+          state.originPanX = state.panX;
+          state.originPanY = state.panY;
+        }
+      });
+      window.addEventListener('pointermove', (e) => {
+        if (state.isPanning && e.target !== canvas) {
+          state.panX = state.originPanX + (e.clientX - state.panStartX);
+          state.panY = state.originPanY + (e.clientY - state.panStartY);
+          applyViewportTransform();
+        }
+      });
+      window.addEventListener('pointerup', () => {
+        if (state.isPanning) state.isPanning = false;
+      });
+
+      // Mouse wheel zoom support on desktop
+      canvasStage.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.15 : -0.15;
+        state.zoom = Math.min(4, Math.max(0.5, state.zoom + delta));
+        applyViewportTransform();
+      }, { passive: false });
+
+      // =========================================================================
+      // 9. GALLERY IMAGE UPLOAD (100% Full Image Visibility, Zero Cropping)
+      // =========================================================================
+      btnGallery.addEventListener('click', () => {
+        SoundFX.click();
+        galleryInput.value = ''; // Allow re-selecting the same image
+        galleryInput.click();
+      });
+
+      galleryInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            initCanvasWithSource(img.naturalWidth, img.naturalHeight, (c, w, h) => {
+              c.drawImage(img, 0, 0, w, h);
+            });
+            showToast('📷 Photo loaded! Tap to color!');
+            SoundFX.pop();
+          };
+          img.onerror = () => {
+            showToast('Oops! Could not open that image.');
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // =========================================================================
+      // 10. BUILT-IN PROCEDURAL KID COLORING TEMPLATES (6 Crisp Pages)
+      // =========================================================================
+      const TEMPLATES = [
+        {
+          id: 'rocket',
+          title: 'Rocket in Space',
+          emoji: '🚀',
+          draw(c, w, h) {
+            c.save();
+            c.scale(w / 900, h / 650);
+            c.lineWidth = 7;
+            c.strokeStyle = '#1a1a1a';
+            c.lineCap = 'round';
+            c.lineJoin = 'round';
+            c.fillStyle = '#FFFFFF';
+
+            // Helper: Draw 5-point Star
+            function drawStar(cx, cy, outerR, innerR) {
+              c.beginPath();
+              for (let i = 0; i < 10; i++) {
+                const r = i % 2 === 0 ? outerR : innerR;
+                const a = (Math.PI / 5) * i - Math.PI / 2;
+                const sx = cx + Math.cos(a) * r;
+                const sy = cy + Math.sin(a) * r;
+                i === 0 ? c.moveTo(sx, sy) : c.lineTo(sx, sy);
+              }
+              c.closePath();
+              c.fill();
+              c.stroke();
+            }
+
+            // Crescent Moon (top left)
+            c.beginPath();
+            c.arc(150, 130, 62, 0.4, Math.PI * 1.65, false);
+            c.quadraticCurveTo(135, 130, 150 + Math.cos(0.4) * 62, 130 + Math.sin(0.4) * 62);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Ringed Planet (top right)
+            c.beginPath();
+            c.ellipse(735, 155, 105, 28, -0.32, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.arc(735, 155, 55, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+            // Front ring arc
+            c.beginPath();
+            c.ellipse(735, 155, 105, 28, -0.32, 0.1, Math.PI - 0.1);
+            c.stroke();
+
+            // Small planet bottom left
+            c.beginPath();
+            c.arc(145, 515, 48, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.arc(128, 500, 12, 0, Math.PI * 2);
+            c.stroke();
+            c.beginPath();
+            c.arc(162, 530, 9, 0, Math.PI * 2);
+            c.stroke();
+
+            // Stars
+            drawStar(280, 95, 26, 12);
+            drawStar(610, 90, 22, 10);
+            drawStar(770, 390, 28, 13);
+            drawStar(115, 320, 22, 10);
+            drawStar(695, 540, 24, 11);
+
+            // Rocket Flame (outer + inner)
+            c.beginPath();
+            c.moveTo(405, 465);
+            c.quadraticCurveTo(375, 545, 450, 610);
+            c.quadraticCurveTo(525, 545, 495, 465);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            c.beginPath();
+            c.moveTo(426, 465);
+            c.quadraticCurveTo(412, 520, 450, 560);
+            c.quadraticCurveTo(488, 520, 474, 465);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Left Fin
+            c.beginPath();
+            c.moveTo(368, 355);
+            c.quadraticCurveTo(285, 395, 295, 485);
+            c.quadraticCurveTo(345, 455, 385, 455);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Right Fin
+            c.beginPath();
+            c.moveTo(532, 355);
+            c.quadraticCurveTo(615, 395, 605, 485);
+            c.quadraticCurveTo(555, 455, 515, 455);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Rocket Body
+            c.beginPath();
+            c.moveTo(450, 75);
+            c.quadraticCurveTo(555, 195, 530, 465);
+            c.lineTo(370, 465);
+            c.quadraticCurveTo(345, 195, 450, 75);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Nose Cone Divider Line
+            c.beginPath();
+            c.moveTo(392, 178);
+            c.quadraticCurveTo(450, 195, 508, 178);
+            c.stroke();
+
+            // Bottom Stripe
+            c.beginPath();
+            c.moveTo(368, 412);
+            c.quadraticCurveTo(450, 428, 532, 412);
+            c.stroke();
+
+            // Porthole Window Outer Ring
+            c.beginPath();
+            c.arc(450, 290, 58, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Porthole Inner Glass
+            c.beginPath();
+            c.arc(450, 290, 38, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            c.restore();
+          }
+        },
+        {
+          id: 'cat',
+          title: 'Cute Kitty',
+          emoji: '🐱',
+          draw(c, w, h) {
+            c.save();
+            c.scale(w / 900, h / 650);
+            c.lineWidth = 7;
+            c.strokeStyle = '#1a1a1a';
+            c.lineCap = 'round';
+            c.lineJoin = 'round';
+            c.fillStyle = '#FFFFFF';
+
+            // Tail
+            c.beginPath();
+            c.moveTo(540, 520);
+            c.bezierCurveTo(690, 530, 725, 360, 645, 320);
+            c.bezierCurveTo(605, 300, 585, 345, 625, 370);
+            c.bezierCurveTo(665, 395, 635, 480, 540, 480);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Body
+            c.beginPath();
+            c.ellipse(450, 455, 130, 145, 0, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Belly patch
+            c.beginPath();
+            c.ellipse(450, 485, 72, 92, 0, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Left & Right Paws
+            c.beginPath();
+            c.ellipse(365, 575, 48, 30, 0, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.ellipse(535, 575, 48, 30, 0, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Ears
+            c.beginPath();
+            c.moveTo(335, 195);
+            c.lineTo(310, 75);
+            c.lineTo(415, 140);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            c.beginPath();
+            c.moveTo(345, 178);
+            c.lineTo(328, 108);
+            c.lineTo(395, 148);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            c.beginPath();
+            c.moveTo(565, 195);
+            c.lineTo(590, 75);
+            c.lineTo(485, 140);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            c.beginPath();
+            c.moveTo(555, 178);
+            c.lineTo(572, 108);
+            c.lineTo(505, 148);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Head
+            c.beginPath();
+            c.ellipse(450, 235, 145, 120, 0, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Collar
+            c.beginPath();
+            c.roundRect(355, 338, 190, 32, 16);
+            c.fill();
+            c.stroke();
+
+            // Bell
+            c.beginPath();
+            c.arc(450, 382, 22, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Eyes
+            c.beginPath();
+            c.arc(395, 220, 26, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.arc(505, 220, 26, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Pupils
+            c.fillStyle = '#1a1a1a';
+            c.beginPath();
+            c.arc(400, 220, 12, 0, Math.PI * 2);
+            c.fill();
+            c.beginPath();
+            c.arc(500, 220, 12, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = '#FFFFFF';
+
+            // Nose
+            c.beginPath();
+            c.moveTo(432, 255);
+            c.lineTo(468, 255);
+            c.lineTo(450, 276);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Cute Smile
+            c.beginPath();
+            c.moveTo(450, 276);
+            c.quadraticCurveTo(432, 302, 412, 286);
+            c.moveTo(450, 276);
+            c.quadraticCurveTo(468, 302, 488, 286);
+            c.stroke();
+
+            // Whiskers
+            c.beginPath();
+            c.moveTo(325, 245); c.lineTo(245, 232);
+            c.moveTo(325, 265); c.lineTo(240, 268);
+            c.moveTo(575, 245); c.lineTo(655, 232);
+            c.moveTo(575, 265); c.lineTo(660, 268);
+            c.stroke();
+
+            // Yarn Ball on Left
+            c.beginPath();
+            c.arc(175, 535, 58, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.arc(175, 535, 42, 0.3, 2.5);
+            c.stroke();
+            c.beginPath();
+            c.arc(175, 535, 42, 3.4, 5.6);
+            c.stroke();
+
+            // Cute Heart top right
+            function drawHeart(hx, hy, s) {
+              c.beginPath();
+              c.moveTo(hx, hy + s * 0.3);
+              c.bezierCurveTo(hx, hy - s * 0.3, hx - s, hy - s * 0.3, hx - s, hy + s * 0.3);
+              c.bezierCurveTo(hx - s, hy + s * 0.85, hx, hy + s * 1.15, hx, hy + s * 1.4);
+              c.bezierCurveTo(hx, hy + s * 1.15, hx + s, hy + s * 0.85, hx + s, hy + s * 0.3);
+              c.bezierCurveTo(hx + s, hy - s * 0.3, hx, hy - s * 0.3, hx, hy + s * 0.3);
+              c.closePath();
+              c.fill();
+              c.stroke();
+            }
+            drawHeart(730, 130, 42);
+            drawHeart(155, 160, 32);
+
+            c.restore();
+          }
+        },
+        {
+          id: 'butterfly',
+          title: 'Happy Butterfly',
+          emoji: '🦋',
+          draw(c, w, h) {
+            c.save();
+            c.scale(w / 900, h / 650);
+            c.lineWidth = 7;
+            c.strokeStyle = '#1a1a1a';
+            c.lineCap = 'round';
+            c.lineJoin = 'round';
+            c.fillStyle = '#FFFFFF';
+
+            // Symmetrical Wings Helper
+            [-1, 1].forEach((dir) => {
+              c.save();
+              c.translate(450, 330);
+              c.scale(dir, 1);
+
+              // Upper Wing
+              c.beginPath();
+              c.moveTo(22, -45);
+              c.bezierCurveTo(160, -245, 385, -210, 345, -35);
+              c.bezierCurveTo(325, 45, 185, 55, 22, 15);
+              c.closePath();
+              c.fill();
+              c.stroke();
+
+              // Lower Wing
+              c.beginPath();
+              c.moveTo(22, 20);
+              c.bezierCurveTo(210, 30, 305, 145, 225, 235);
+              c.bezierCurveTo(145, 295, 55, 205, 20, 105);
+              c.closePath();
+              c.fill();
+              c.stroke();
+
+              // Wing Decorative Circles
+              c.beginPath();
+              c.arc(215, -75, 58, 0, Math.PI * 2);
+              c.fill();
+              c.stroke();
+
+              c.beginPath();
+              c.arc(215, -75, 28, 0, Math.PI * 2);
+              c.fill();
+              c.stroke();
+
+              c.beginPath();
+              c.arc(115, -105, 26, 0, Math.PI * 2);
+              c.fill();
+              c.stroke();
+
+              c.beginPath();
+              c.arc(165, 145, 42, 0, Math.PI * 2);
+              c.fill();
+              c.stroke();
+
+              c.beginPath();
+              c.arc(92, 115, 20, 0, Math.PI * 2);
+              c.fill();
+              c.stroke();
+
+              c.restore();
+            });
+
+            // Antennae
+            c.beginPath();
+            c.moveTo(432, 180);
+            c.quadraticCurveTo(385, 100, 355, 105);
+            c.stroke();
+            c.beginPath();
+            c.arc(350, 105, 14, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            c.beginPath();
+            c.moveTo(468, 180);
+            c.quadraticCurveTo(515, 100, 545, 105);
+            c.stroke();
+            c.beginPath();
+            c.arc(550, 105, 14, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Body
+            c.beginPath();
+            c.ellipse(450, 385, 34, 145, 0, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Body Stripes
+            for (let sy = 305; sy <= 465; sy += 40) {
+              c.beginPath();
+              c.moveTo(420, sy);
+              c.quadraticCurveTo(450, sy + 14, 480, sy);
+              c.stroke();
+            }
+
+            // Head
+            c.beginPath();
+            c.arc(450, 215, 48, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Cute Face
+            c.fillStyle = '#1a1a1a';
+            c.beginPath();
+            c.arc(434, 208, 7, 0, Math.PI * 2);
+            c.arc(466, 208, 7, 0, Math.PI * 2);
+            c.fill();
+            c.beginPath();
+            c.arc(450, 224, 16, 0.15 * Math.PI, 0.85 * Math.PI);
+            c.stroke();
+
+            c.restore();
+          }
+        },
+        {
+          id: 'dino',
+          title: 'Friendly Dino',
+          emoji: '🦕',
+          draw(c, w, h) {
+            c.save();
+            c.scale(w / 900, h / 650);
+            c.lineWidth = 7;
+            c.strokeStyle = '#1a1a1a';
+            c.lineCap = 'round';
+            c.lineJoin = 'round';
+            c.fillStyle = '#FFFFFF';
+
+            // Ground Hills
+            c.beginPath();
+            c.moveTo(0, 560);
+            c.quadraticCurveTo(240, 505, 480, 555);
+            c.quadraticCurveTo(720, 595, 900, 535);
+            c.lineTo(900, 650);
+            c.lineTo(0, 650);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Smiling Sun top right
+            c.beginPath();
+            c.arc(770, 115, 58, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+            for (let i = 0; i < 10; i++) {
+              const a = (Math.PI * 2 * i) / 10;
+              c.beginPath();
+              c.moveTo(770 + Math.cos(a) * 72, 115 + Math.sin(a) * 72);
+              c.lineTo(770 + Math.cos(a) * 95, 115 + Math.sin(a) * 95);
+              c.stroke();
+            }
+
+            // Fluffy Cloud top left
+            c.beginPath();
+            c.arc(140, 120, 36, Math.PI * 0.5, Math.PI * 1.5);
+            c.arc(185, 98, 42, Math.PI, Math.PI * 2);
+            c.arc(235, 118, 34, Math.PI * 1.5, Math.PI * 0.5);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Dino Body + Long Neck + Tail (Closed single smooth outline)
+            c.beginPath();
+            c.moveTo(295, 185); // head top
+            c.bezierCurveTo(340, 115, 435, 125, 435, 185); // head front
+            c.bezierCurveTo(435, 225, 385, 240, 355, 235); // jaw
+            c.quadraticCurveTo(360, 310, 415, 350); // neck front
+            c.bezierCurveTo(510, 315, 625, 360, 655, 445); // back
+            c.quadraticCurveTo(755, 455, 815, 415); // tail top
+            c.quadraticCurveTo(765, 515, 630, 505); // tail bottom
+            c.lineTo(625, 585); // back leg right
+            c.lineTo(565, 585);
+            c.lineTo(565, 515); // belly
+            c.lineTo(445, 515);
+            c.lineTo(445, 585); // front leg
+            c.lineTo(385, 585);
+            c.lineTo(385, 495);
+            c.quadraticCurveTo(300, 425, 295, 275); // neck back
+            c.quadraticCurveTo(265, 225, 295, 185);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Dino Spots (fillable circles!)
+            const spots = [
+              [485, 395, 30], [565, 415, 24], [520, 465, 20], [425, 435, 22], [618, 462, 16]
+            ];
+            spots.forEach(([sx, sy, sr]) => {
+              c.beginPath();
+              c.arc(sx, sy, sr, 0, Math.PI * 2);
+              c.fill();
+              c.stroke();
+            });
+
+            // Eye & Smile
+            c.beginPath();
+            c.arc(368, 178, 16, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+            c.fillStyle = '#1a1a1a';
+            c.beginPath();
+            c.arc(372, 178, 7, 0, Math.PI * 2);
+            c.fill();
+            c.beginPath();
+            c.arc(392, 205, 20, 0.1 * Math.PI, 0.75 * Math.PI);
+            c.stroke();
+
+            c.restore();
+          }
+        },
+        {
+          id: 'house',
+          title: 'Sunny House',
+          emoji: '🏠',
+          draw(c, w, h) {
+            c.save();
+            c.scale(w / 900, h / 650);
+            c.lineWidth = 7;
+            c.strokeStyle = '#1a1a1a';
+            c.lineCap = 'round';
+            c.lineJoin = 'round';
+            c.fillStyle = '#FFFFFF';
+
+            // Ground
+            c.beginPath();
+            c.moveTo(0, 535);
+            c.lineTo(900, 535);
+            c.lineTo(900, 650);
+            c.lineTo(0, 650);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Sun
+            c.beginPath();
+            c.arc(135, 115, 55, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Cloud
+            c.beginPath();
+            c.arc(690, 115, 34, Math.PI * 0.5, Math.PI * 1.5);
+            c.arc(735, 95, 40, Math.PI, Math.PI * 2);
+            c.arc(785, 115, 32, Math.PI * 1.5, Math.PI * 0.5);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Tree on right
+            c.beginPath();
+            c.rect(735, 370, 48, 165);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.arc(760, 315, 78, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Chimney
+            c.beginPath();
+            c.rect(520, 145, 55, 115);
+            c.fill();
+            c.stroke();
+
+            // House Main Walls
+            c.beginPath();
+            c.rect(255, 285, 360, 250);
+            c.fill();
+            c.stroke();
+
+            // Roof Triangle
+            c.beginPath();
+            c.moveTo(215, 290);
+            c.lineTo(435, 115);
+            c.lineTo(655, 290);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Attic Round Window
+            c.beginPath();
+            c.arc(435, 222, 34, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Door
+            c.beginPath();
+            c.roundRect(390, 390, 90, 145, [45, 45, 0, 0]);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.arc(462, 468, 7, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+
+            // Left Window (4 panes)
+            c.beginPath();
+            c.rect(290, 345, 72, 72);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.moveTo(326, 345); c.lineTo(326, 417);
+            c.moveTo(290, 381); c.lineTo(362, 381);
+            c.stroke();
+
+            // Right Window (4 panes)
+            c.beginPath();
+            c.rect(508, 345, 72, 72);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.moveTo(544, 345); c.lineTo(544, 417);
+            c.moveTo(508, 381); c.lineTo(580, 381);
+            c.stroke();
+
+            // Pathway
+            c.beginPath();
+            c.moveTo(395, 535);
+            c.lineTo(345, 650);
+            c.lineTo(525, 650);
+            c.lineTo(475, 535);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Cute Bush Left
+            c.beginPath();
+            c.arc(140, 505, 46, Math.PI, Math.PI * 2);
+            c.arc(195, 505, 38, Math.PI, Math.PI * 2);
+            c.lineTo(233, 535);
+            c.lineTo(94, 535);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            c.restore();
+          }
+        },
+        {
+          id: 'garden',
+          title: 'Flower Garden',
+          emoji: '🌸',
+          draw(c, w, h) {
+            c.save();
+            c.scale(w / 900, h / 650);
+            c.lineWidth = 7;
+            c.strokeStyle = '#1a1a1a';
+            c.lineCap = 'round';
+            c.lineJoin = 'round';
+            c.fillStyle = '#FFFFFF';
+
+            // Rolling Grass
+            c.beginPath();
+            c.moveTo(0, 515);
+            c.quadraticCurveTo(225, 465, 450, 515);
+            c.quadraticCurveTo(675, 565, 900, 495);
+            c.lineTo(900, 650);
+            c.lineTo(0, 650);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Center Big Flower Stem & Leaves
+            c.beginPath();
+            c.rect(438, 305, 24, 225);
+            c.fill();
+            c.stroke();
+
+            // Left Leaf
+            c.beginPath();
+            c.moveTo(438, 435);
+            c.quadraticCurveTo(335, 375, 325, 445);
+            c.quadraticCurveTo(365, 485, 438, 465);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Right Leaf
+            c.beginPath();
+            c.moveTo(462, 415);
+            c.quadraticCurveTo(565, 355, 575, 425);
+            c.quadraticCurveTo(535, 465, 462, 445);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Big Daisy Petals (8 petals)
+            const fx = 450, fy = 235;
+            for (let i = 0; i < 8; i++) {
+              const a = (Math.PI * 2 * i) / 8;
+              c.save();
+              c.translate(fx + Math.cos(a) * 92, fy + Math.sin(a) * 92);
+              c.rotate(a);
+              c.beginPath();
+              c.ellipse(0, 0, 58, 38, 0, 0, Math.PI * 2);
+              c.fill();
+              c.stroke();
+              c.restore();
+            }
+
+            // Center Happy Face
+            c.beginPath();
+            c.arc(fx, fy, 68, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+            c.fillStyle = '#1a1a1a';
+            c.beginPath();
+            c.arc(fx - 22, fy - 12, 8, 0, Math.PI * 2);
+            c.arc(fx + 22, fy - 12, 8, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = '#FFFFFF';
+            c.beginPath();
+            c.arc(fx, fy + 6, 26, 0.15 * Math.PI, 0.85 * Math.PI);
+            c.stroke();
+
+            // Left Tulip
+            c.beginPath();
+            c.rect(172, 355, 18, 165);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.moveTo(125, 290);
+            c.lineTo(155, 325);
+            c.lineTo(181, 275);
+            c.lineTo(207, 325);
+            c.lineTo(237, 290);
+            c.quadraticCurveTo(240, 385, 181, 385);
+            c.quadraticCurveTo(122, 385, 125, 290);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Right Tulip
+            c.beginPath();
+            c.rect(712, 355, 18, 165);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.moveTo(665, 290);
+            c.lineTo(695, 325);
+            c.lineTo(721, 275);
+            c.lineTo(747, 325);
+            c.lineTo(777, 290);
+            c.quadraticCurveTo(780, 385, 721, 385);
+            c.quadraticCurveTo(662, 385, 665, 290);
+            c.closePath();
+            c.fill();
+            c.stroke();
+
+            // Cute Buzzing Bee top right
+            c.beginPath();
+            c.ellipse(715, 125, 24, 34, -0.4, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.ellipse(748, 125, 24, 34, 0.4, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.ellipse(730, 162, 48, 32, 0, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.moveTo(718, 132); c.lineTo(718, 192);
+            c.moveTo(744, 132); c.lineTo(744, 192);
+            c.stroke();
+
+            // Cute Ladybug bottom left
+            c.beginPath();
+            c.arc(270, 565, 42, Math.PI, Math.PI * 2);
+            c.closePath();
+            c.fill();
+            c.stroke();
+            c.beginPath();
+            c.arc(252, 545, 9, 0, Math.PI * 2);
+            c.arc(282, 542, 9, 0, Math.PI * 2);
+            c.stroke();
+
+            c.restore();
+          }
+        }
+      ];
+
+      function loadTemplate(templateId) {
+        const tpl = TEMPLATES.find((t) => t.id === templateId) || TEMPLATES[0];
+        initCanvasWithSource(900, 650, (c, w, h) => tpl.draw(c, w, h));
+      }
+
+      function renderTemplatesModalGrid() {
+        templatesGrid.innerHTML = '';
+        TEMPLATES.forEach((tpl) => {
+          const card = document.createElement('button');
+          card.className = 'btn-3d group flex flex-col items-center p-2.5 rounded-2xl bg-sky-50 hover:bg-amber-50 border-2 border-sky-200 hover:border-amber-400 shadow-sm cursor-pointer text-left';
+
+          const previewCanvas = document.createElement('canvas');
+          previewCanvas.width = 300;
+          previewCanvas.height = 216;
+          previewCanvas.className = 'w-full h-auto rounded-xl bg-white border-2 border-white shadow-inner mb-2';
+          const pCtx = previewCanvas.getContext('2d');
+          pCtx.fillStyle = '#FFFFFF';
+          pCtx.fillRect(0, 0, 300, 216);
+          tpl.draw(pCtx, 300, 216);
+
+          const label = document.createElement('div');
+          label.className = 'font-bold text-slate-700 text-xs sm:text-sm flex items-center gap-1.5';
+          label.innerHTML = `<span>${tpl.emoji}</span><span>${tpl.title}</span>`;
+
+          card.appendChild(previewCanvas);
+          card.appendChild(label);
+          card.addEventListener('click', () => {
+            SoundFX.pop();
+            loadTemplate(tpl.id);
+            templatesModal.classList.add('hidden');
+            showToast(`${tpl.emoji} ${tpl.title} ready!`);
+          });
+
+          templatesGrid.appendChild(card);
+        });
+      }
+
+      // =========================================================================
+      // 11. PALETTES & CUSTOM COLOR PICKER UI
+      // =========================================================================
+      function selectColor(hex, fromCustom = false) {
+        state.currentColor = hex.toUpperCase();
+        activeColorBadge.style.backgroundColor = state.currentColor;
+        brushPreviewDot.style.backgroundColor = state.currentColor;
+
+        // If user was on Eraser or Pan, automatically switch back to Fill or Brush?
+        // Better: If on Eraser, switch to Bucket so kids immediately see their chosen color work!
+        if (state.tool === 'eraser') {
+          setActiveTool('bucket');
+        }
+
+        if (fromCustom) {
+          addCustomColor(state.currentColor);
+        }
+        renderSwatches();
+        renderMyColors();
+        SoundFX.click();
+      }
+
+      function addCustomColor(hex) {
+        const idx = state.customColors.indexOf(hex);
+        if (idx !== -1) state.customColors.splice(idx, 1);
+        state.customColors.unshift(hex);
+        if (state.customColors.length > 10) state.customColors.pop();
+      }
+
+      function renderPaletteTabs() {
+        paletteTabsEl.innerHTML = '';
+        PALETTES.forEach((pal) => {
+          const isActive = pal.id === state.activePaletteId;
+          const btn = document.createElement('button');
+          btn.className = `btn-3d shrink-0 flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border-b-2 transition-all cursor-pointer ${
+            isActive
+              ? 'bg-gradient-to-b from-pink-400 to-rose-500 text-white border-rose-700 shadow-sm scale-105'
+              : 'bg-sky-50 hover:bg-sky-100 text-slate-600 border-sky-200'
+          }`;
+          btn.innerHTML = `<span>${pal.icon}</span><span>${pal.name}</span>`;
+          btn.addEventListener('click', () => {
+            state.activePaletteId = pal.id;
+            renderPaletteTabs();
+            renderSwatches();
+            SoundFX.click();
+          });
+          paletteTabsEl.appendChild(btn);
+        });
+      }
+
+      function renderSwatches() {
+        const activePal = PALETTES.find((p) => p.id === state.activePaletteId) || PALETTES[0];
+        swatchContainerEl.innerHTML = '';
+        activePal.colors.forEach((hex) => {
+          const isSelected = hex.toUpperCase() === state.currentColor.toUpperCase();
+          const btn = document.createElement('button');
+          btn.title = hex;
+          btn.style.backgroundColor = hex;
+          btn.className = `btn-3d shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 cursor-pointer transition-transform ${
+            isSelected
+              ? 'border-white ring-4 ring-yellow-400 scale-110 shadow-md z-10'
+              : 'border-slate-200/90 hover:scale-105 shadow-sm'
+          }`;
+          btn.addEventListener('click', () => selectColor(hex, false));
+          swatchContainerEl.appendChild(btn);
+        });
+      }
+
+      function renderMyColors() {
+        if (state.customColors.length === 0) {
+          myColorsRow.classList.add('hidden');
+          myColorsRow.classList.remove('flex');
+          return;
+        }
+        myColorsRow.classList.remove('hidden');
+        myColorsRow.classList.add('flex');
+        myColorsSwatches.innerHTML = '';
+        state.customColors.forEach((hex) => {
+          const isSelected = hex.toUpperCase() === state.currentColor.toUpperCase();
+          const btn = document.createElement('button');
+          btn.title = `Custom: ${hex}`;
+          btn.style.backgroundColor = hex;
+          btn.className = `btn-3d shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 cursor-pointer ${
+            isSelected ? 'border-white ring-2 ring-yellow-400 scale-110' : 'border-slate-200'
+          }`;
+          btn.addEventListener('click', () => selectColor(hex, false));
+          myColorsSwatches.appendChild(btn);
+        });
+      }
+
+      // Custom Color Input Events
+      customColorInput.addEventListener('input', (e) => {
+        state.currentColor = e.target.value.toUpperCase();
+        activeColorBadge.style.backgroundColor = state.currentColor;
+        brushPreviewDot.style.backgroundColor = state.currentColor;
+      });
+      customColorInput.addEventListener('change', (e) => {
+        selectColor(e.target.value, true);
+        showToast('✨ Custom color added to My Colors!');
+      });
+
+      // =========================================================================
+      // 12. TOOLBAR, MODALS, ZOOM & SAVE EVENT HANDLERS
+      // =========================================================================
+      function setActiveTool(toolName) {
+        state.tool = toolName;
+        document.querySelectorAll('.tool-btn').forEach((b) => {
+          if (b.dataset.tool === toolName) {
+            b.classList.add('tool-active');
+          } else {
+            b.classList.remove('tool-active');
+          }
+        });
+        canvas.style.cursor = toolName === 'pan' ? 'grab' : 'crosshair';
+      }
+
+      document.querySelectorAll('.tool-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          setActiveTool(btn.dataset.tool);
+          SoundFX.click();
+        });
+      });
+
+      btnUndo.addEventListener('click', performUndo);
+      btnRedo.addEventListener('click', performRedo);
+
+      // Settings Popover
+      btnSettings.addEventListener('click', () => {
+        settingsPopover.classList.toggle('hidden');
+        SoundFX.click();
+      });
+      closeSettings.addEventListener('click', () => {
+        settingsPopover.classList.add('hidden');
+      });
+
+      toleranceSlider.addEventListener('input', (e) => {
+        state.tolerance = parseInt(e.target.value, 10);
+        toleranceValue.textContent = state.tolerance;
+      });
+
+      brushSizeSlider.addEventListener('input', (e) => {
+        state.brushSize = parseInt(e.target.value, 10);
+        brushSizeValue.textContent = `${state.brushSize}px`;
+        const dotSize = Math.min(34, Math.max(6, state.brushSize * 0.7));
+        brushPreviewDot.style.width = `${dotSize}px`;
+        brushPreviewDot.style.height = `${dotSize}px`;
+      });
+
+      // Zoom Controls
+      btnZoomIn.addEventListener('click', () => {
+        state.zoom = Math.min(4, +(state.zoom + 0.25).toFixed(2));
+        applyViewportTransform();
+        SoundFX.click();
+      });
+      btnZoomOut.addEventListener('click', () => {
+        state.zoom = Math.max(0.5, +(state.zoom - 0.25).toFixed(2));
+        applyViewportTransform();
+        SoundFX.click();
+      });
+      btnZoomFit.addEventListener('click', () => {
+        resetZoomAndPan();
+        fitCanvasToStage();
+        SoundFX.click();
+      });
+
+      // Mute / Unmute
+      btnMute.addEventListener('click', () => {
+        state.isMuted = !state.isMuted;
+        btnMute.textContent = state.isMuted ? '🔇' : '🔊';
+        if (!state.isMuted) SoundFX.click();
+      });
+
+      // Templates Modal
+      btnTemplates.addEventListener('click', () => {
+        SoundFX.click();
+        templatesModal.classList.remove('hidden');
+      });
+      closeTemplates.addEventListener('click', () => {
+        templatesModal.classList.add('hidden');
+      });
+      templatesModal.addEventListener('click', (e) => {
+        if (e.target === templatesModal) templatesModal.classList.add('hidden');
+      });
+
+      // Reset Confirmation Modal
+      btnReset.addEventListener('click', () => {
+        SoundFX.click();
+        resetModal.classList.remove('hidden');
+      });
+      cancelReset.addEventListener('click', () => {
+        resetModal.classList.add('hidden');
+      });
+      confirmReset.addEventListener('click', () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(originalCanvas, 0, 0);
+        saveHistorySnapshot();
+        resetModal.classList.add('hidden');
+        SoundFX.undo();
+        showToast('🔄 Ready to color again!');
+      });
+
+      // Save / Download Artwork as PNG + Confetti Celebration
+      btnSave.addEventListener('click', () => {
+        try {
+          const link = document.createElement('a');
+          link.download = `ColorPop-Artwork-${Date.now()}.png`;
+          link.href = canvas.toDataURL('image/png');
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          SoundFX.celebrate();
+          launchConfetti();
+          showToast('🎉 Yay! Picture Saved!');
+        } catch (err) {
+          showToast('Could not save image. Please try again!');
+        }
+      });
+
+      // Keyboard Shortcuts (Undo/Redo on Desktop)
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) performRedo();
+          else performUndo();
+        }
+      });
+
+      // =========================================================================
+      // 13. INITIALIZE APP ON LOAD
+      // =========================================================================
+      window.addEventListener('load', () => {
+        renderPaletteTabs();
+        renderSwatches();
+        renderTemplatesModalGrid();
+        loadTemplate('rocket'); // Start immediately with Rocket in Space!
+      });
+    })();
+  </script>
+</body>
+</html>
